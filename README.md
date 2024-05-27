@@ -14,6 +14,9 @@ Se desarrolla un proyecto en 5 fases:
   4) Comunicaciones
   5) Visualizacion
 
+     
+![IMG_7286](https://github.com/MediaLabUniovi/WeatherStation/assets/159242374/c768164d-cc1d-4bb2-a757-6661cf3c5c01)
+
 
 
 ![DC-DC](https://github.com/MediaLabUniovi/WeatherStation/assets/159242374/0809f150-b4f7-43c1-aee0-568f5c1f5307)
