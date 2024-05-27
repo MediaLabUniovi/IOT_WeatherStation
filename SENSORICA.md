@@ -10,14 +10,14 @@
 
      
 
-  Velocidad del viento: 
+  Velocidad del viento: https://www.davisinstruments.com/products/anemometer-for-vantage-pro2-vantage-pro
   
   Las copas del anemometro hacen girar un conjunto de eje y rodamiento, que a su vez hacen girar un imán que una vez por vuelta pasa sobre un rele reed, cerrando sus contactos y generando un pulso          descendente que recogemos en un pin del microcontrolador
     
  ![Anemometro Schematic](https://github.com/MediaLabUniovi/WeatherStation/assets/159242374/f25c58d4-cc9a-449d-ab5a-3490521289f2)
    
   
-  Precipitación: 
+  Precipitación: https://www.davisinstruments.com/products/aerocone-rain-collector-with-flat-base-for-vantage-pro2
   
   La lluvia cae en el cono del pluviómetro y se deposita en una cubeta, cuando esta se llena, cae por su propio peso cerrando el contacto de un rele reed y generando un pulso ascendente que recogemos en      un pin del microcontrolador. 
 
