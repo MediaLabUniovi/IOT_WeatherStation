@@ -1,4 +1,5 @@
 1ª FASE: Sensorica 
+
   Direccion del viento: https://www.davisinstruments.com/products/wind-vane-d-shaped-receptacle
   
   Veleta que consta con un potenciometro de resistencia variable (0-20 kΩ) que nos proporciona un voltaje que recogemos en un pin del microcontrolador conectado al 
