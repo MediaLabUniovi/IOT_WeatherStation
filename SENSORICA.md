@@ -28,6 +28,7 @@
 
 
 Temperatura, Humedad y Presión: https://www.amazon.es/AZDelivery-GY-BME280-Sensor-Parent/dp/B07D8T4HP6
+
   Utilizamos el sensor BME280 para leer estos valores. Mediante la libreria "Adafruit_BME280" que utiliza funciones que siguen el protocolo I2C accedemos a los registros que guardan estos valores 
 
   ![BME](https://github.com/MediaLabUniovi/WeatherStation/assets/159242374/6bb0c832-5b1d-417c-b621-b2cb0a0b4f2b)
