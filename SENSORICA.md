@@ -5,6 +5,7 @@
   conversor analógico/digital.
 
 
+![Veleta_schematic](https://github.com/MediaLabUniovi/WeatherStation/assets/159242374/de57982b-7076-4cde-a660-335a309e646f)
 
 
      
@@ -13,7 +14,8 @@
   
   Las copas del anemometro hacen girar un conjunto de eje y rodamiento, que a su vez hacen girar un imán que una vez por vuelta pasa sobre un rele reed, cerrando sus contactos y generando un pulso          descendente que recogemos en un pin del microcontrolador
     
-    
+ ![Anemometro Schematic](https://github.com/MediaLabUniovi/WeatherStation/assets/159242374/f25c58d4-cc9a-449d-ab5a-3490521289f2)
+   
   
   Precipitación: 
   
@@ -21,5 +23,6 @@
 
 
     
+![Pluviometro Schematic](https://github.com/MediaLabUniovi/WeatherStation/assets/159242374/7625b989-4968-402c-82ac-e03e56dfb308)
 
 
