@@ -24,7 +24,9 @@ Se desarrolla un proyecto en 5 fases:
 
 1ª FASE: Sensorica 
   Direccion del viento: https://www.davisinstruments.com/products/wind-vane-d-shaped-receptacle
+  
     Veleta que consta con un potenciometro de resistencia variable (0-20 kΩ) que nos proporciona un voltaje que recogemos en un pin del microcontrolador conectado al conversor analógico/digital. 
+    
     ![Veleta_schematic](https://github.com/MediaLabUniovi/WeatherStation/assets/159242374/7deb9286-fcb1-487f-b430-ac0bd9c79de8)
 
   Velocidad del viento: https://www.davisinstruments.com/products/anemometer-for-vantage-pro2-vantage-pro
