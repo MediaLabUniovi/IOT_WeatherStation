@@ -1,4 +1,4 @@
-1ª FASE: Sensorica 
+Sensorica 
 
   Direccion del viento: https://www.davisinstruments.com/products/wind-vane-d-shaped-receptacle
   
