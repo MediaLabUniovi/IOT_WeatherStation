@@ -5,6 +5,7 @@ Sensorica
   Veleta que consta con un potenciometro de resistencia variable (0-20 kΩ) que nos proporciona un voltaje que recogemos en un pin del microcontrolador conectado al 
   conversor analógico/digital.
 
+![VELETAL](https://github.com/MediaLabUniovi/WeatherStation/assets/159242374/b1f901bc-c46c-4513-a420-676b7d15fc30)
 
 ![Veleta_schematic](https://github.com/MediaLabUniovi/WeatherStation/assets/159242374/de57982b-7076-4cde-a660-335a309e646f)
 
