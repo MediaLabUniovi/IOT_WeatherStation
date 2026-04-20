@@ -6,7 +6,7 @@
 
 #include "config.h"
 
-SHT85 sht(0x44);  // Direccion I2C del SHT85
+SHT85 sht(SHT_ADDRESS);  // Direccion I2C del SHT85
 
 volatile uint32_t windRotations = 0;
 volatile uint32_t lastWindInterruptMs = 0;
@@ -16,11 +16,11 @@ volatile bool hasRainSample = false;
 
 static volatile uint32_t rotations = 0;
 static volatile unsigned long ContactBounceTime = 0;
-static volatile unsigned long tipTime = 0;
 static volatile unsigned long rainTime = 100000;
-static volatile uint8_t OverflowCount = 0;
+static volatile uint32_t pendingRainInterrupts = 0;
 RTC_DATA_ATTR volatile uint32_t accumulatedRainTips = 0;
 RTC_DATA_ATTR uint64_t rainDayStartUs = 0;
+RTC_DATA_ATTR uint64_t lastRainTipUs = 0;
 
 constexpr uint64_t RAIN_DAY_WINDOW_US = 24ULL * 60ULL * 60ULL * 1000000ULL;
 
@@ -38,6 +38,38 @@ static void updateRainDailyWindow(uint64_t nowUs) {
     uint64_t windowsElapsed = elapsedUs / RAIN_DAY_WINDOW_US;
     rainDayStartUs += windowsElapsed * RAIN_DAY_WINDOW_US;
     accumulatedRainTips = 0;
+    lastRainTipUs = 0;
+    rainTime = 100000;
+}
+
+static bool registerRainTip(uint64_t nowUs) {
+    updateRainDailyWindow(nowUs);
+
+    const uint64_t debounceUs = static_cast<uint64_t>(RAIN_IGNORE_MS) * 1000ULL;
+    if (lastRainTipUs != 0) {
+        const uint64_t deltaUs = nowUs - lastRainTipUs;
+        if (deltaUs < debounceUs) {
+            return false;
+        }
+
+        const uint64_t deltaMs = deltaUs / 1000ULL;
+        rainTime = static_cast<unsigned long>(
+            deltaMs > static_cast<uint64_t>(ULONG_MAX)
+                ? static_cast<uint64_t>(ULONG_MAX)
+                : deltaMs
+        );
+    } else {
+        rainTime = 100000;
+    }
+
+    lastRainTipUs = nowUs;
+    accumulatedRainTips++;
+
+    const unsigned long nowMs = millis();
+    lastRainTipMs = static_cast<uint32_t>(nowMs);
+    rainIntervalMs = static_cast<uint32_t>(rainTime);
+    hasRainSample = true;
+    return true;
 }
 
 static int16_t clampToInt16(long value, const char* field) {
@@ -167,11 +199,7 @@ int windDirection() {
     }
 
     int vaneValue = static_cast<int>(vaneAccumulator / kSamples);
-    int mappedDirection = map(vaneValue, 0, 4095, 0, 360);
-    mappedDirection = constrain(mappedDirection, 0, 360);
-    int windCalDirection = mappedDirection;
-    if (windCalDirection > 360) windCalDirection = windCalDirection - 360;
-    if (windCalDirection < 0) windCalDirection = windCalDirection + 360;
+    const int windCalDirection = constrain(map(vaneValue, 0, 4095, 0, 360), 0, 360);
 
     String windCompassDirection = " ";
     if (windCalDirection < 22) windCompassDirection = "N";
@@ -201,8 +229,8 @@ float windSpeed() {
     windRotations = 0;
     interrupts();
 
-    float computedWindSpeed = static_cast<float>(currentRotations) * 0.9f;
-    computedWindSpeed = computedWindSpeed * 1.61f;
+    float computedWindSpeed = static_cast<float>(currentRotations) * WIND_FACTOR;
+    computedWindSpeed = computedWindSpeed * MPH_TO_KMH;
     Serial.print("Velocidad del viento =");
     Serial.print(computedWindSpeed);
     Serial.println("km/h");
@@ -211,7 +239,7 @@ float windSpeed() {
 
 void rotate() {
     unsigned long now = millis();
-    if ((now - ContactBounceTime) > 15) {
+    if ((now - ContactBounceTime) > WIND_DEBOUNCE_MS) {
         rotations++;
         windRotations = rotations;
         ContactBounceTime = now;
@@ -229,7 +257,7 @@ float rainRate() {
         return 0.0f;
     }
 
-    float precipitacion = (0.2f * 3600000.0f) / static_cast<float>(currentRainTime);
+    float precipitacion = (RAIN_MM_PER_TIP * 3600000.0f) / static_cast<float>(currentRainTime);
     Serial.print("Rainrate");
     Serial.print(precipitacion);
 
@@ -237,27 +265,22 @@ float rainRate() {
 }
 
 void rain() {
-    updateRainDailyWindow(esp_clk_rtc_time());
-
-    Serial.println("RainCount");
-    long currentTime = millis();
-    if (tipTime != 0 && (currentTime - static_cast<long>(tipTime)) < 2000) {
-        return;
+    if (registerRainTip(esp_clk_rtc_time())) {
+        Serial.println("RainCount");
     }
+}
 
-    if (OverflowCount == 0) {
-        rainTime = 100000;
-        OverflowCount = 1;
-    } else {
-        rainTime = static_cast<unsigned long>(currentTime - static_cast<long>(tipTime));
+void processRainInterrupts() {
+    uint32_t pendingTips = 0;
+    noInterrupts();
+    pendingTips = pendingRainInterrupts;
+    pendingRainInterrupts = 0;
+    interrupts();
+
+    while (pendingTips > 0) {
+        --pendingTips;
+        rain();
     }
-
-    tipTime = static_cast<unsigned long>(currentTime);
-    accumulatedRainTips++;
-
-    lastRainTipMs = static_cast<uint32_t>(tipTime);
-    rainIntervalMs = static_cast<uint32_t>(rainTime);
-    hasRainSample = true;
 }
 
 uint32_t getRainTipsAccumulated() {
@@ -278,7 +301,7 @@ void IRAM_ATTR onWindInterrupt() {
 }
 
 void IRAM_ATTR onRainInterrupt() {
-    rain();
+    pendingRainInterrupts++;
 }
 
 float readBatteryVoltage() {
@@ -286,18 +309,6 @@ float readBatteryVoltage() {
     float sensed = (static_cast<float>(raw) * 2.1f) / 2500.0f;
     float battery = sensed * 2.0f;
     return battery;
-}
-
-float readWindDirection() {
-    return static_cast<float>(windDirection());
-}
-
-float readWindSpeedKmh() {
-    return windSpeed();
-}
-
-float readRainRateMmH() {
-    return rainRate();
 }
 
 void readSensors(SensorPayload& p) {
@@ -316,8 +327,8 @@ void readSensors(SensorPayload& p) {
         }
     }
 
-    float pressure = ENABLE_PRESSURE ? 0.0f : 0.0f;
-    float altitude = ENABLE_ALTITUDE ? 0.0f : 0.0f;
+    const float pressure = 0.0f;
+    const float altitude = 0.0f;
     float windDir = ENABLE_WIND_VANE ? static_cast<float>(windDirection()) : 0.0f;
     float windSpeedValue = ENABLE_WIND_SENSOR ? windSpeed() : 0.0f;
     float rainRateValue = ENABLE_RAIN_SENSOR ? rainRate() : 0.0f;
@@ -361,9 +372,12 @@ void readSensors(SensorPayload& p) {
     p.rain_rate_x10 = clampToInt32(lroundf(rainRateValue * 100.0f), "rain_rate_x10");
     p.rain_accum_x10 = clampToInt32(lroundf(rainAccumulatedValue * 10.0f), "rain_accum_x10");
 
-    int batteryLegacy = static_cast<int>(battery);
-    int batteryScaled = batteryLegacy * 10;
+    int batteryScaled = static_cast<int>(lroundf(battery * 10.0f));
     if (batteryScaled < 0) batteryScaled = 0;
     if (batteryScaled > 255) batteryScaled = 255;
     p.battery_x10 = static_cast<uint8_t>(batteryScaled);
+
+    if (ENABLE_BATTERY) {
+        Serial.printf("[Battery] raw=%.3fV payload_x10=%u\n", battery, static_cast<unsigned>(p.battery_x10));
+    }
 }

@@ -1,13 +1,13 @@
 #include <Arduino.h>
 #include <esp_sleep.h>
-#include <esp_timer.h>
+#include <esp_private/esp_clk.h>
 
 #include "config.h"
 
 RTC_DATA_ATTR uint64_t g_sleepDeadlineUs = 0;
 
 void sleepMillis(uint64_t ms) {
-    const uint64_t nowUs = static_cast<uint64_t>(esp_timer_get_time());
+    const uint64_t nowUs = esp_clk_rtc_time();
     g_sleepDeadlineUs = nowUs + (ms * 1000ULL);
 
     esp_sleep_enable_timer_wakeup(ms * 1000ULL);
@@ -34,7 +34,7 @@ uint64_t getPendingSleepMs() {
         return 0;
     }
 
-    const uint64_t nowUs = static_cast<uint64_t>(esp_timer_get_time());
+    const uint64_t nowUs = esp_clk_rtc_time();
     if (nowUs >= g_sleepDeadlineUs) {
         g_sleepDeadlineUs = 0;
         return 0;

@@ -99,15 +99,13 @@ uint64_t getPendingSleepMs();
 void initSensors();
 
 float readBatteryVoltage();
-float readWindDirection();
-float readWindSpeedKmh();
-float readRainRateMmH();
 
 int windDirection();
 float windSpeed();
 void rotate();
 float rainRate();
 void rain();
+void processRainInterrupts();
 uint32_t getRainTipsAccumulated();
 float getRainAccumulatedMm();
 

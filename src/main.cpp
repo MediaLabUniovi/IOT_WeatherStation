@@ -17,8 +17,6 @@ const lmic_pinmap lmic_pins = {
 
 SensorPayload payload;
 unsigned long lastMeasure = 0;
-bool lmicInitialized = false;
-bool loraTransmitting = false;
 uint32_t loraTransmitStartTime = 0;
 
 // =========================
@@ -104,7 +102,6 @@ void doSend() {
         0
     );
 
-    loraTransmitting = true;
     loraTransmitStartTime = millis();
 
     Serial.println();
@@ -182,7 +179,6 @@ void onEvent(ev_t ev) {
             break;
 
         case EV_TXCOMPLETE:
-            loraTransmitting = false;
             {
                 uint32_t elapsed = millis() - loraTransmitStartTime;
                 Serial.println(F("[LoRa] ✓ Transmisión completada"));
@@ -214,7 +210,6 @@ void onEvent(ev_t ev) {
             break;
 
         case EV_TXCANCELED:
-            loraTransmitting = false;
             Serial.println(F("[LoRa] ❌ Transmisión cancelada"));
             break;
 
@@ -260,6 +255,9 @@ void setup() {
     delay(1000);
 
     esp_sleep_wakeup_cause_t wakeCause = esp_sleep_get_wakeup_cause();
+    const bool wokeFromDeepSleep =
+        (wakeCause == ESP_SLEEP_WAKEUP_TIMER) ||
+        (wakeCause == ESP_SLEEP_WAKEUP_EXT0);
 
     Serial.println();
     Serial.println("=================================");
@@ -286,7 +284,6 @@ void setup() {
         LMIC_reset();
         LMIC_setClockError(MAX_CLOCK_ERROR * 1 / 100);
 
-        lmicInitialized = true;
         Serial.println("[LoRa] ✓ Inicializado");
         Serial.println("[LoRa] ⏳ Esperando conexión a red...");
     } else {
@@ -295,12 +292,18 @@ void setup() {
     
     Serial.println();
 
-    lastMeasure = millis();
+    lastMeasure = wokeFromDeepSleep
+        ? (millis() - LOOP_TIME_MS)
+        : millis();
 }
 
 void loop() {
     if (ENABLE_LORA) {
         os_runloop_once();
+    }
+
+    if (ENABLE_RAIN_SENSOR) {
+        processRainInterrupts();
     }
 
     unsigned long now = millis();
