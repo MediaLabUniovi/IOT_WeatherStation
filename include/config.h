@@ -35,6 +35,21 @@ constexpr uint8_t WIND_VANE_PIN = 4;
 constexpr uint8_t WIND_SENSOR_PIN = 34;
 constexpr uint8_t RAIN_SENSOR_PIN = 36;
 
+// GPIO 34..39 en ESP32 no tienen pull-up/pull-down internos.
+// Si no hay resistencias externas, las interrupciones pueden generar ruido
+// continuo y provocar reinicios por watchdog (INT_WDT).
+constexpr bool WIND_SENSOR_HAS_EXTERNAL_BIAS = false;
+constexpr bool RAIN_SENSOR_HAS_EXTERNAL_BIAS = false;
+
+// =========================
+// I2C (SHT85)
+// =========================
+constexpr uint8_t SHT_SDA_PIN = 21;
+constexpr uint8_t SHT_SCL_PIN = 22;
+constexpr uint32_t SHT_I2C_CLOCK_HZ = 100000;
+constexpr uint8_t SHT_INIT_RETRIES = 3;
+constexpr bool SHT_TRY_DEFAULT_WIRE_FIRST = true;
+
 // =========================
 // SHT85
 // =========================
@@ -44,10 +59,22 @@ constexpr uint8_t SHT_ADDRESS = 0x44;
 // Sensores
 // =========================
 constexpr uint32_t WIND_DEBOUNCE_MS = 15;
-constexpr uint32_t RAIN_IGNORE_MS = 2000;
+constexpr uint32_t RAIN_IGNORE_MS = 250;
 constexpr float RAIN_MM_PER_TIP = 0.2f;
+constexpr uint32_t RAIN_RATE_AVG_WINDOW_MS = 10 * 60 * 1000;  // 10 min
+constexpr uint8_t RAIN_TIP_HISTORY_SIZE = 64;
 constexpr float WIND_FACTOR = 0.9f;
 constexpr float MPH_TO_KMH = 1.61f;
+
+// =========================
+// Bateria (ADC)
+// =========================
+constexpr uint8_t BATTERY_ADC_SAMPLES = 32;
+constexpr float BATTERY_ADC_MAX_READING = 4095.0f;
+constexpr float BATTERY_ADC_VREF = 3.3f;
+constexpr float BATTERY_DIVIDER_RATIO = 2.0f;
+constexpr float BATTERY_CALIBRATION_FACTOR = 1.0f;
+constexpr float BATTERY_CALIBRATION_OFFSET_V = 0.30f;
 
 // =========================
 // LMIC pinmap - LILYGO T3 v1.6.1
@@ -86,6 +113,7 @@ extern volatile uint32_t lastWindInterruptMs;
 extern volatile uint32_t lastRainTipMs;
 extern volatile uint32_t rainIntervalMs;
 extern volatile bool hasRainSample;
+extern bool g_debugDisplayMode;
 
 // =========================
 // Prototipos
@@ -104,12 +132,12 @@ int windDirection();
 float windSpeed();
 void rotate();
 float rainRate();
-void rain();
-void processRainInterrupts();
+bool rain();
+uint32_t processRainInterrupts();
 uint32_t getRainTipsAccumulated();
 float getRainAccumulatedMm();
 
-void readSensors(SensorPayload& payload);
+void readSensors(SensorPayload& payload, bool printTable = true);
 size_t get_payload(const SensorPayload& values, uint8_t* out, size_t out_size);
 
 void doSend();

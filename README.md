@@ -11,211 +11,206 @@ Firmware de estación meteorológica para ESP32 (LILYGO T3 / TTGO LoRa32 v1) con
 5. Empaqueta los datos en un payload binario de 23 bytes.
 6. Envía por LoRaWAN en FPort 1.
 7. Entra en deep sleep y puede despertarse por temporizador o por evento de lluvia.
+8. Incluye un modo debug para pruebas sin envíos LoRa ni deep sleep.
 
 ## Hardware y entorno
 
-- MCU/placa: ESP32, entorno PlatformIO `ttgo-lora32-v1`.
-- Framework: Arduino.
-- Región LoRaWAN: EU868.
-- Radio LMIC: SX1276.
-- Sensor T/H: SHT85 (I2C).
-- Sensores meteorológicos por pulsos/analógico: anemómetro, pluviómetro, veleta.
+- MCU/placa: ESP32, entorno PlatformIO `ttgo-lora32-v1`
+- Framework: Arduino
+- Región LoRaWAN: EU868
+- Radio LMIC: SX1276
+- Sensor T/H: SHT85 (I2C)
+- Sensores meteorológicos: anemómetro, pluviómetro y veleta
 
-Configuración relevante en [platformio.ini](platformio.ini):
+Configuración relevante en platformio.ini:
 
-- `platform = espressif32`
-- `board = ttgo-lora32-v1`
-- `CFG_eu868=1`
-- `CFG_sx1276_radio=1`
+- platform = espressif32
+- board = ttgo-lora32-v1
+- CFG_eu868=1
+- CFG_sx1276_radio=1
 
 ## Estructura del proyecto
 
-- [src/main.cpp](src/main.cpp): ciclo principal, estado LoRaWAN, creación del payload y envío.
-- [src/sensores.cpp](src/sensores.cpp): inicialización y lectura de sensores, interrupciones de viento/lluvia.
-- [src/sleep_utils.cpp](src/sleep_utils.cpp): deep sleep, wakeup por temporizador y lluvia.
-- [include/config.h](include/config.h): constantes, flags de sensores, pines y definición del payload.
-- [include/credentials.h](include/credentials.h): claves OTAA (AppEUI, DevEUI, AppKey).
-- [cambios.md](cambios.md): histórico de cambios/correcciones recientes.
+- src/main.cpp: ciclo principal, gestión de modos, LoRaWAN y envío
+- src/sensores.cpp: lectura de sensores e interrupciones
+- src/sleep_utils.cpp: deep sleep y wakeup
+- include/config.h: configuración general y payload
+- include/credentials.h: claves OTAA
+- cambios.md: historial de cambios
 
 ## Pines usados
 
 ### LoRa (LMIC)
 
-Definidos en [src/main.cpp](src/main.cpp#L11):
-
-- `NSS`: GPIO 18
-- `RST`: GPIO 23
-- `DIO0/DIO1/DIO2`: GPIO 26 / 33 / 32
+- NSS: GPIO 18
+- RST: GPIO 23
+- DIO0/DIO1/DIO2: GPIO 26 / 33 / 32
 
 ### Sensores
 
-Definidos en [include/config.h](include/config.h#L32):
+- BATTERY_PIN: GPIO 12
+- VOLTAGE_PIN: GPIO 15
+- WIND_VANE_PIN: GPIO 4 (ADC)
+- WIND_SENSOR_PIN: GPIO 34 (interrupción)
+- RAIN_SENSOR_PIN: GPIO 36 (interrupción y wakeup)
 
-- `BATTERY_PIN`: GPIO 12
-- `VOLTAGE_PIN`: GPIO 15 (habilitación de electrónica para viento/veleta)
-- `WIND_VANE_PIN`: GPIO 4 (ADC)
-- `WIND_SENSOR_PIN`: GPIO 34 (anemómetro, interrupción)
-- `RAIN_SENSOR_PIN`: GPIO 36 (pluviómetro, interrupción y wakeup)
+Notas:
+- GPIO 34 y 36 no tienen pull interno
+- El pluviómetro usa pull-down externo y genera pulso HIGH
 
-Notas eléctricas implementadas en código:
+## Modos de funcionamiento
 
-- GPIO 34 y 36 no tienen pull-up/pull-down interno.
-- Para lluvia se asume pull-down externo y pulso a HIGH al cerrar contacto.
+### Modo normal
 
-## Flujo de ejecución del firmware
+Modo de uso una vez la estación esté instalada:
 
-### 1) Arranque
+- lectura de sensores
+- envío por LoRaWAN
+- deep sleep para ahorro de batería
+- wakeup por temporizador o lluvia
 
-En [src/main.cpp](src/main.cpp#L258):
+### Modo debug
 
-- Inicia Serial a 115200.
-- Detecta causa de wakeup.
-- Llama a `initSensors()`.
+Modo de pruebas:
 
-### 2) Caso especial: wakeup por lluvia
+- sin envíos LoRa
+- sin deep sleep
+- ejecución continua para validar sensores
 
-En [src/main.cpp](src/main.cpp#L271):
+## Flujo de ejecución
 
-- Si despertó por `ESP_SLEEP_WAKEUP_EXT0`, incrementa contador de lluvia con `rain()`.
-- Recupera tiempo pendiente de sueño con `getPendingSleepMs()`.
-- Si todavía falta ventana de sueño, vuelve a dormir sin transmitir.
+### Arranque
 
-Esto evita romper el ciclo normal de envío por cada tip del pluviómetro.
+- inicia Serial
+- detecta causa de wakeup
+- inicializa sensores
+- selecciona modo debug o normal
 
-### 3) Inicialización LoRaWAN
+### Wakeup por lluvia
 
-En [src/main.cpp](src/main.cpp#L284):
+- si despierta por pluviómetro:
+  - registra evento de lluvia
+  - recupera tiempo restante de sueño
+  - vuelve a dormir si corresponde
 
-- `os_init()`, `LMIC_reset()` y ajuste de error de reloj.
-- Credenciales OTAA cargadas desde [include/credentials.h](include/credentials.h#L7).
+### Inicialización LoRa
 
-### 4) Bucle principal
+- os_init()
+- LMIC_reset()
+- carga credenciales OTAA
 
-En [src/main.cpp](src/main.cpp#L301):
+### Loop
 
-- Ejecuta `os_runloop_once()` para LMIC.
-- Cada `LOOP_TIME_MS` (20 s) llama a `doSend()`.
+Modo normal:
+- ejecuta LMIC
+- procesa lluvia
+- cada LOOP_TIME_MS envía datos
 
-### 5) Envío y post-envío
+Modo debug:
+- lectura continua
+- sin sleep ni envío
 
-En [src/main.cpp](src/main.cpp#L84) y [src/main.cpp](src/main.cpp#L184):
+### Envío
 
-- `doSend()` lee sensores, arma payload y encola uplink (`LMIC_setTxData2`, no confirmado).
-- Tras `EV_TXCOMPLETE`, entra en deep sleep `WAKE_TIME_MS` (5 min) si está habilitado.
+- lectura de sensores
+- generación de payload
+- envío con LMIC_setTxData2
+
+Tras envío:
+- entra en deep sleep si está habilitado
 
 ## Lógica de sensores
 
-### SHT85 (temperatura/humedad)
+### Temperatura y humedad
 
-En [src/sensores.cpp](src/sensores.cpp#L127):
-
-- Inicializa I2C y valida presencia del SHT85.
-- Si falla, reinicia el equipo.
+- lectura desde SHT85
 
 ### Viento
 
-En [src/sensores.cpp](src/sensores.cpp#L109), [src/sensores.cpp](src/sensores.cpp#L158) y [src/sensores.cpp](src/sensores.cpp#L197):
+- anemómetro por interrupciones
+- veleta por ADC
+- velocidad calculada por pulsos
 
-- Anemómetro por interrupción `FALLING` con debounce de 15 ms.
-- Veleta por ADC (12 bits), promedio de 8 muestras y mapeo 0..360°.
-- Velocidad calculada desde rotaciones acumuladas entre lecturas.
+Se ha ajustado el cálculo para evitar valores fijos (antes se quedaba en ~1.4 km/h).
 
 ### Lluvia
 
-En [src/sensores.cpp](src/sensores.cpp#L120), [src/sensores.cpp](src/sensores.cpp#L222) y [src/sensores.cpp](src/sensores.cpp#L239):
+- pluviómetro por interrupción
+- acumulado en memoria RTC
+- cálculo en función del tiempo entre eventos
 
-- Pluviómetro por interrupción `RISING`.
-- Ignora rebotes/eventos cercanos (< 2 s).
-- `rainRate` se estima por intervalo entre tips.
-- Acumulado diario en memoria RTC (`RTC_DATA_ATTR`) con ventana móvil de 24 h.
+Se ha mejorado el cálculo para obtener valores más lineales. Antes tendía a dar valores fijos (~1.2 mm/h) al detectar agua.
 
 ### Batería
 
-En [src/sensores.cpp](src/sensores.cpp#L284):
+- lectura analógica
+- conversión a voltaje
 
-- Lectura analógica y escalado a voltaje estimado.
-- Se calcula porcentaje para mostrar por serie.
-- En payload se mantiene formato legado de `battery_x10`.
+Se ha corregido un desfase de aproximadamente 0.6V para obtener valores más reales.
 
-## Deep sleep y wakeup
+## Deep sleep
 
-En [src/sleep_utils.cpp](src/sleep_utils.cpp#L9):
-
-- Siempre configura wakeup por temporizador.
-- Si lluvia está habilitada, configura `ext0` en GPIO36 a nivel HIGH, pero solo si el pin está en LOW antes de dormir (protección anti-bucle).
-- Guarda un deadline RTC para poder retomar el sueño restante tras un wakeup por lluvia.
+- wakeup por temporizador
+- wakeup por lluvia (GPIO36)
+- control para evitar bucles de wakeup
+- recuperación de tiempo restante tras evento
 
 ## Payload LoRaWAN (23 bytes)
 
-Definición en [include/config.h](include/config.h#L60) y empaquetado en [src/main.cpp](src/main.cpp#L40).
+Formato:
 
-| Bytes | Campo | Escala esperada |
-|---|---|---|
-| 0..1 | `temperature_c_x100` | °C x100 |
-| 2..5 | `pressure_x100` | hPa x100 |
-| 6..7 | `altitude_m_x100` | m x100 |
-| 8..9 | `humidity_pct_x100` | % x100 |
-| 10..12 | `wind_dir_deg_x100` | grados x100 (24 bits) |
-| 13..14 | `wind_speed_kmh_x100` | km/h x100 |
-| 15..17 | `rain_rate_x10` | lluvia instantánea (24 bits) |
-| 18..21 | `rain_accum_x10` | lluvia acumulada 24 h x10 |
-| 22 | `battery_x10` | valor legado |
+- 0..1: temperatura (°C x100)
+- 2..5: presión (hPa x100)
+- 6..7: altitud (m x100)
+- 8..9: humedad (% x100)
+- 10..12: dirección viento (grados x100)
+- 13..14: velocidad viento (km/h x100)
+- 15..17: lluvia instantánea
+- 18..21: lluvia acumulada
+- 22: batería
 
 Importante:
 
-- Los campos de 3 bytes (24 bits) requieren sign-extension al decodificar si se manejan como enteros con signo.
-- En el código actual, `rain_rate_x10` se calcula con factor x100 en lugar de x10 ([src/sensores.cpp](src/sensores.cpp#L361)). Ajustar decoder según lo que se quiera conservar (nombre o escala real).
+- El payload NO se ha modificado
+- Misma estructura y tamaño
+- Compatible con SensorLab
 
-## Configuración principal
+## Configuración
 
-### Flags de comportamiento
+- LOOP_TIME_MS = 20000
+- WAKE_TIME_MS = 5 minutos
+- ENABLE_DEEP_SLEEP = true
+- ENABLE_LORA = true
 
-En [include/config.h](include/config.h#L12):
+Modo debug:
+- DEBUG_MODE = 1 (activo)
+- DEBUG_MODE = 0 (normal)
 
-- `LOOP_TIME_MS = 20000`
-- `WAKE_TIME_MS = 5 * 60 * 1000`
-- `ENABLE_DEEP_SLEEP = true`
-- `ENABLE_LORA = true`
+## Build y carga
 
-### Flags de sensores
-
-En [include/config.h](include/config.h#L21):
-
-- SHT85, batería, anemómetro, pluviómetro y veleta habilitados.
-- Presión y altitud también habilitados por flag, pero en implementación actual se envían a 0.
-
-## Build, carga y monitor serie
-
-Requisitos:
-
-1. VS Code + extensión PlatformIO.
-2. Toolchain de ESP32 instalada por PlatformIO.
-3. Placa conectada por USB.
-
-Comandos típicos (si `pio` está disponible en terminal):
-
-```bash
 pio run -e lilygo-t3
 pio run -e lilygo-t3 -t upload
 pio device monitor -b 115200
-```
 
-También se puede compilar/subir desde los botones de PlatformIO en VS Code.
+## Estado actual
 
-## Seguridad de credenciales
-
-Actualmente [include/credentials.h](include/credentials.h) contiene claves OTAA reales en texto plano. Para entornos compartidos:
-
-- Rotar claves si este repositorio fue público.
-- Excluir credenciales del control de versiones.
-- Usar plantillas (por ejemplo `credentials.example.h`) y archivo local ignorado.
+- estación funcionando correctamente
+- viento y lluvia ajustados tras pruebas reales
+- batería corregida
+- payload compatible
+- pendiente de instalación
 
 ## Limitaciones conocidas
 
-1. `pressure` y `altitude` están en 0.0 por no haber sensor implementado aún ([src/sensores.cpp](src/sensores.cpp#L319)).
-2. Escala de `rain_rate_x10` no coincide con su nombre (x100 en implementación actual).
-3. El cálculo de velocidad de viento depende del número de rotaciones entre lecturas y de factores empíricos; puede requerir calibración de campo.
+- presión y altitud no implementadas (pueden ir a 0)
+- calibración de viento puede requerir ajuste en campo
+- cálculo de lluvia puede necesitar ajuste fino tras instalación
+
+## Seguridad
+
+- credenciales OTAA en texto plano
+- recomendable excluir del repo en producción
 
 ## Historial de cambios
 
-Resumen detallado de modificaciones recientes en [cambios.md](cambios.md).
+Ver cambios.md
