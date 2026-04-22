@@ -38,7 +38,10 @@ constexpr uint8_t RAIN_SENSOR_PIN = 36;
 // GPIO 34..39 en ESP32 no tienen pull-up/pull-down internos.
 // Si no hay resistencias externas, las interrupciones pueden generar ruido
 // continuo y provocar reinicios por watchdog (INT_WDT).
-constexpr bool WIND_SENSOR_HAS_EXTERNAL_BIAS = false;
+// El anemometro en este montaje entrega senal con sesgo externo.
+// GPIO34 no tiene pull-up interno, asi que habilitamos IRQ asumiendo
+// que el modulo/sensor ya aporta el bias necesario.
+constexpr bool WIND_SENSOR_HAS_EXTERNAL_BIAS = true;
 constexpr bool RAIN_SENSOR_HAS_EXTERNAL_BIAS = false;
 
 // =========================
@@ -75,6 +78,8 @@ constexpr float BATTERY_ADC_VREF = 3.3f;
 constexpr float BATTERY_DIVIDER_RATIO = 2.0f;
 constexpr float BATTERY_CALIBRATION_FACTOR = 1.0f;
 constexpr float BATTERY_CALIBRATION_OFFSET_V = 0.30f;
+// Aplicar offset solo cuando hay tension real de bateria.
+constexpr float BATTERY_OFFSET_MIN_INPUT_V = 0.50f;
 
 // =========================
 // LMIC pinmap - LILYGO T3 v1.6.1
@@ -95,7 +100,7 @@ struct SensorPayload {
     int16_t wind_speed_kmh_x100;     // bytes 13..14
     int32_t rain_rate_x10;           // bytes 15..17 (3 bytes LSB)
     int32_t rain_accum_x10;          // bytes 18..21 (lluvia acumulada 24h x10)
-    uint8_t battery_x10;             // byte 22
+    uint8_t battery_x10;             // byte 22 (ahora porcentaje 0..100)
 };
 
 static_assert(LORAWAN_PAYLOAD_LEN <= 51, "Payload LoRaWAN demasiado grande");

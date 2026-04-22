@@ -431,9 +431,13 @@ float readBatteryVoltage() {
     const float rawAvg = static_cast<float>(rawSum) / static_cast<float>(BATTERY_ADC_SAMPLES);
     const float adcVoltage = (rawAvg / BATTERY_ADC_MAX_READING) * BATTERY_ADC_VREF;
 
-    float batteryVoltage =
-        (adcVoltage * BATTERY_DIVIDER_RATIO * BATTERY_CALIBRATION_FACTOR) +
-        BATTERY_CALIBRATION_OFFSET_V;
+    const float batteryVoltageBase =
+        adcVoltage * BATTERY_DIVIDER_RATIO * BATTERY_CALIBRATION_FACTOR;
+
+    float batteryVoltage = batteryVoltageBase;
+    if (batteryVoltageBase >= BATTERY_OFFSET_MIN_INPUT_V) {
+        batteryVoltage += BATTERY_CALIBRATION_OFFSET_V;
+    }
 
     if (batteryVoltage < 0.0f) batteryVoltage = 0.0f;
     if (batteryVoltage > 4.2f) batteryVoltage = 4.2f;
@@ -538,8 +542,5 @@ void readSensors(SensorPayload& p, bool printTable) {
     p.rain_rate_x10 = clampToInt32(lroundf(rainRateValue * 100.0f), "rain_rate_x10");
     p.rain_accum_x10 = clampToInt32(lroundf(rainAccumulatedValue * 10.0f), "rain_accum_x10");
 
-    int batteryScaled = static_cast<int>(lroundf(battery * 10.0f));
-    if (batteryScaled < 0) batteryScaled = 0;
-    if (batteryScaled > 255) batteryScaled = 255;
-    p.battery_x10 = static_cast<uint8_t>(batteryScaled);
+    p.battery_x10 = batteryPercent;
 }

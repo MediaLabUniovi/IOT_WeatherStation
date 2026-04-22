@@ -167,7 +167,7 @@ Formato:
 - 13..14: velocidad viento (km/h x100)
 - 15..17: lluvia instantánea
 - 18..21: lluvia acumulada
-- 22: batería
+- 22: batería (% 0..100)
 
 Importante:
 

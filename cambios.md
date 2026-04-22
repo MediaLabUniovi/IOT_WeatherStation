@@ -70,7 +70,7 @@ Mapa final de bytes:
 - 13..14 velocidad viento x100
 - 15..17 rain rate
 - 18..21 lluvia acumulada x10
-- 22 bateria x10
+- 22 bateria (% 0..100)
 
 ## 8) Regla de reinicio del acumulado de lluvia
 

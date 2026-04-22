@@ -21,7 +21,7 @@ unsigned long lastMeasure = 0;
 uint32_t loraTransmitStartTime = 0;
 
 // Cambiar a 1 para habilitar modo debug con pantalla.
-#define DEBUG_MODE 1
+#define DEBUG_MODE 0
 
 // En modo debug no hay deep sleep ni envio LoRa.
 constexpr bool DEBUG_MODE_ENABLED = (DEBUG_MODE == 1);
@@ -66,26 +66,6 @@ void printHex2(unsigned v) {
 
 static float payloadToFloat(int32_t value, float scale) {
     return static_cast<float>(value) / scale;
-}
-
-static void printDebugDisplayToSerial(const SensorPayload& values) {
-    const float temperature = payloadToFloat(values.temperature_c_x100, 100.0f);
-    const float humidity = payloadToFloat(values.humidity_pct_x100, 100.0f);
-    const float windSpeed = payloadToFloat(values.wind_speed_kmh_x100, 100.0f);
-    const float rainRateValue = payloadToFloat(values.rain_rate_x10, 100.0f);
-    const float rainAccumulated = payloadToFloat(values.rain_accum_x10, 10.0f);
-    const float batteryV = payloadToFloat(values.battery_x10, 10.0f);
-    const uint8_t batteryPct = static_cast<uint8_t>(
-        constrain(lroundf((batteryV / 4.2f) * 100.0f), 0, 100)
-    );
-
-    Serial.println("[OLED->SERIAL]");
-    Serial.printf("T:%.1fC H:%.0f%%\n", temperature, humidity);
-    Serial.printf("Bat:%.2fV %u%%\n", batteryV, static_cast<unsigned>(batteryPct));
-    Serial.printf("Wind:%.2f km/h\n", windSpeed);
-    Serial.printf("Dir:%.1f deg\n", payloadToFloat(values.wind_dir_deg_x100, 100.0f));
-    Serial.printf("RainR:%.2f mm/h\n", rainRateValue);
-    Serial.printf("Rain24:%.2f mm\n", rainAccumulated);
 }
 
 #if DEBUG_MODE
@@ -174,8 +154,6 @@ static bool initDebugDisplay() {
 
 static void drawDebugDisplay(const SensorPayload& values) {
 #if DEBUG_MODE
-    printDebugDisplayToSerial(values);
-
     if (!displayReady) {
         return;
     }
@@ -185,10 +163,7 @@ static void drawDebugDisplay(const SensorPayload& values) {
     const float windSpeed = payloadToFloat(values.wind_speed_kmh_x100, 100.0f);
     const float rainRateValue = payloadToFloat(values.rain_rate_x10, 100.0f);
     const float rainAccumulated = payloadToFloat(values.rain_accum_x10, 10.0f);
-    const float batteryV = payloadToFloat(values.battery_x10, 10.0f);
-    const uint8_t batteryPct = static_cast<uint8_t>(
-        constrain(lroundf((batteryV / 4.2f) * 100.0f), 0, 100)
-    );
+    const uint8_t batteryPct = values.battery_x10;
 
     display.clearDisplay();
     display.setTextColor(SSD1306_WHITE);
@@ -203,8 +178,6 @@ static void drawDebugDisplay(const SensorPayload& values) {
 
     display.setCursor(0, 10);
     display.print("Bat:");
-    display.print(batteryV, 2);
-    display.print("V ");
     display.print(static_cast<unsigned>(batteryPct));
     display.print("%");
 
